@@ -1,0 +1,61 @@
+version: '3.8'
+services:
+  database:
+    image: postgres:17-alpine
+    container_name: ameth-database-kargaps
+    environment:
+      POSTGRES_DB: kargaps_db
+      POSTGRES_USER: ameth_user
+      POSTGRES_PASSWORD: Ameth2005
+    ports:
+      - "5432:5432"
+    volumes:
+      - ameth_kargaps_data:/var/lib/postgresql/data
+      - ./init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - ameth-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ameth_user -d kargaps_db"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: ameth-backend-kargaps
+    environment:
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_NAME: kargaps_db
+      DB_USER: ameth_user
+      DB_PASSWORD: Ameth2005
+      DB_SSL: "false"
+      PORT: 5000
+      NODE_ENV: production
+    ports:
+      - "5000:5000"
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - ameth-network
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: ameth-frontend-kargaps
+    ports:
+      - "3000:3000"
+    depends_on:
+      - backend
+    networks:
+      - ameth-network
+    environment:
+      API_URL: http://backend:5000
+volumes:
+  ameth_kargaps_data:
+    name: ameth_kargaps_persistent_data
+networks:
+  ameth-network:
+    driver: bridge
